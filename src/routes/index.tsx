@@ -64,7 +64,7 @@ function LandingPage() {
               <Link to="/signup">
                 <PrimaryButton size="lg">התחל בדיקה</PrimaryButton>
               </Link>
-              <Link to="/report/idea_1">
+              <Link to="/report/$ideaId" params={{ ideaId: "idea_1" }}>
                 <PrimaryButton size="lg" variant="secondary">
                   צפה בדוח לדוגמה
                 </PrimaryButton>
@@ -150,7 +150,7 @@ function LandingPage() {
             <Link to="/signup">
               <PrimaryButton size="lg">התחל בדיקה</PrimaryButton>
             </Link>
-            <Link to="/report/idea_1">
+            <Link to="/report/$ideaId" params={{ ideaId: "idea_1" }}>
               <PrimaryButton size="lg" variant="secondary">
                 צפה בדוח לדוגמה
               </PrimaryButton>
