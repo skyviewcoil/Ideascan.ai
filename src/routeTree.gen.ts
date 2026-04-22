@@ -9,38 +9,218 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ReportIdeaIdRouteImport } from './routes/report.$ideaId'
+import { Route as IdeaStep5RouteImport } from './routes/idea.step-5'
+import { Route as IdeaStep4RouteImport } from './routes/idea.step-4'
+import { Route as IdeaStep3RouteImport } from './routes/idea.step-3'
+import { Route as IdeaStep2RouteImport } from './routes/idea.step-2'
+import { Route as IdeaStep1RouteImport } from './routes/idea.step-1'
+import { Route as IdeaNewRouteImport } from './routes/idea.new'
+import { Route as IdeaAnalyzingRouteImport } from './routes/idea.analyzing'
+import { Route as ReportIdeaIdPrintRouteImport } from './routes/report.$ideaId.print'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportIdeaIdRoute = ReportIdeaIdRouteImport.update({
+  id: '/report/$ideaId',
+  path: '/report/$ideaId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaStep5Route = IdeaStep5RouteImport.update({
+  id: '/idea/step-5',
+  path: '/idea/step-5',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaStep4Route = IdeaStep4RouteImport.update({
+  id: '/idea/step-4',
+  path: '/idea/step-4',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaStep3Route = IdeaStep3RouteImport.update({
+  id: '/idea/step-3',
+  path: '/idea/step-3',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaStep2Route = IdeaStep2RouteImport.update({
+  id: '/idea/step-2',
+  path: '/idea/step-2',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaStep1Route = IdeaStep1RouteImport.update({
+  id: '/idea/step-1',
+  path: '/idea/step-1',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaNewRoute = IdeaNewRouteImport.update({
+  id: '/idea/new',
+  path: '/idea/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IdeaAnalyzingRoute = IdeaAnalyzingRouteImport.update({
+  id: '/idea/analyzing',
+  path: '/idea/analyzing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportIdeaIdPrintRoute = ReportIdeaIdPrintRouteImport.update({
+  id: '/print',
+  path: '/print',
+  getParentRoute: () => ReportIdeaIdRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/idea/analyzing': typeof IdeaAnalyzingRoute
+  '/idea/new': typeof IdeaNewRoute
+  '/idea/step-1': typeof IdeaStep1Route
+  '/idea/step-2': typeof IdeaStep2Route
+  '/idea/step-3': typeof IdeaStep3Route
+  '/idea/step-4': typeof IdeaStep4Route
+  '/idea/step-5': typeof IdeaStep5Route
+  '/report/$ideaId': typeof ReportIdeaIdRouteWithChildren
+  '/report/$ideaId/print': typeof ReportIdeaIdPrintRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/idea/analyzing': typeof IdeaAnalyzingRoute
+  '/idea/new': typeof IdeaNewRoute
+  '/idea/step-1': typeof IdeaStep1Route
+  '/idea/step-2': typeof IdeaStep2Route
+  '/idea/step-3': typeof IdeaStep3Route
+  '/idea/step-4': typeof IdeaStep4Route
+  '/idea/step-5': typeof IdeaStep5Route
+  '/report/$ideaId': typeof ReportIdeaIdRouteWithChildren
+  '/report/$ideaId/print': typeof ReportIdeaIdPrintRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRoute
+  '/login': typeof LoginRoute
+  '/signup': typeof SignupRoute
+  '/idea/analyzing': typeof IdeaAnalyzingRoute
+  '/idea/new': typeof IdeaNewRoute
+  '/idea/step-1': typeof IdeaStep1Route
+  '/idea/step-2': typeof IdeaStep2Route
+  '/idea/step-3': typeof IdeaStep3Route
+  '/idea/step-4': typeof IdeaStep4Route
+  '/idea/step-5': typeof IdeaStep5Route
+  '/report/$ideaId': typeof ReportIdeaIdRouteWithChildren
+  '/report/$ideaId/print': typeof ReportIdeaIdPrintRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/signup'
+    | '/idea/analyzing'
+    | '/idea/new'
+    | '/idea/step-1'
+    | '/idea/step-2'
+    | '/idea/step-3'
+    | '/idea/step-4'
+    | '/idea/step-5'
+    | '/report/$ideaId'
+    | '/report/$ideaId/print'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/signup'
+    | '/idea/analyzing'
+    | '/idea/new'
+    | '/idea/step-1'
+    | '/idea/step-2'
+    | '/idea/step-3'
+    | '/idea/step-4'
+    | '/idea/step-5'
+    | '/report/$ideaId'
+    | '/report/$ideaId/print'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/login'
+    | '/signup'
+    | '/idea/analyzing'
+    | '/idea/new'
+    | '/idea/step-1'
+    | '/idea/step-2'
+    | '/idea/step-3'
+    | '/idea/step-4'
+    | '/idea/step-5'
+    | '/report/$ideaId'
+    | '/report/$ideaId/print'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRoute: typeof DashboardRoute
+  LoginRoute: typeof LoginRoute
+  SignupRoute: typeof SignupRoute
+  IdeaAnalyzingRoute: typeof IdeaAnalyzingRoute
+  IdeaNewRoute: typeof IdeaNewRoute
+  IdeaStep1Route: typeof IdeaStep1Route
+  IdeaStep2Route: typeof IdeaStep2Route
+  IdeaStep3Route: typeof IdeaStep3Route
+  IdeaStep4Route: typeof IdeaStep4Route
+  IdeaStep5Route: typeof IdeaStep5Route
+  ReportIdeaIdRoute: typeof ReportIdeaIdRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +228,97 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/report/$ideaId': {
+      id: '/report/$ideaId'
+      path: '/report/$ideaId'
+      fullPath: '/report/$ideaId'
+      preLoaderRoute: typeof ReportIdeaIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/step-5': {
+      id: '/idea/step-5'
+      path: '/idea/step-5'
+      fullPath: '/idea/step-5'
+      preLoaderRoute: typeof IdeaStep5RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/step-4': {
+      id: '/idea/step-4'
+      path: '/idea/step-4'
+      fullPath: '/idea/step-4'
+      preLoaderRoute: typeof IdeaStep4RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/step-3': {
+      id: '/idea/step-3'
+      path: '/idea/step-3'
+      fullPath: '/idea/step-3'
+      preLoaderRoute: typeof IdeaStep3RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/step-2': {
+      id: '/idea/step-2'
+      path: '/idea/step-2'
+      fullPath: '/idea/step-2'
+      preLoaderRoute: typeof IdeaStep2RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/step-1': {
+      id: '/idea/step-1'
+      path: '/idea/step-1'
+      fullPath: '/idea/step-1'
+      preLoaderRoute: typeof IdeaStep1RouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/new': {
+      id: '/idea/new'
+      path: '/idea/new'
+      fullPath: '/idea/new'
+      preLoaderRoute: typeof IdeaNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/idea/analyzing': {
+      id: '/idea/analyzing'
+      path: '/idea/analyzing'
+      fullPath: '/idea/analyzing'
+      preLoaderRoute: typeof IdeaAnalyzingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/report/$ideaId/print': {
+      id: '/report/$ideaId/print'
+      path: '/print'
+      fullPath: '/report/$ideaId/print'
+      preLoaderRoute: typeof ReportIdeaIdPrintRouteImport
+      parentRoute: typeof ReportIdeaIdRoute
+    }
   }
 }
 
+interface ReportIdeaIdRouteChildren {
+  ReportIdeaIdPrintRoute: typeof ReportIdeaIdPrintRoute
+}
+
+const ReportIdeaIdRouteChildren: ReportIdeaIdRouteChildren = {
+  ReportIdeaIdPrintRoute: ReportIdeaIdPrintRoute,
+}
+
+const ReportIdeaIdRouteWithChildren = ReportIdeaIdRoute._addFileChildren(
+  ReportIdeaIdRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRoute: DashboardRoute,
+  LoginRoute: LoginRoute,
+  SignupRoute: SignupRoute,
+  IdeaAnalyzingRoute: IdeaAnalyzingRoute,
+  IdeaNewRoute: IdeaNewRoute,
+  IdeaStep1Route: IdeaStep1Route,
+  IdeaStep2Route: IdeaStep2Route,
+  IdeaStep3Route: IdeaStep3Route,
+  IdeaStep4Route: IdeaStep4Route,
+  IdeaStep5Route: IdeaStep5Route,
+  ReportIdeaIdRoute: ReportIdeaIdRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
