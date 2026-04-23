@@ -15,19 +15,38 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
+function prettyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login") || m.includes("invalid_credentials")) {
+    return "אימייל או סיסמה שגויים.";
+  }
+  if (m.includes("email not confirmed") || m.includes("confirm")) {
+    return 'לא אישרת את כתובת האימייל. בדוק את תיבת הדוא"ל.';
+  }
+  if (m.includes("supabase is not configured")) {
+    return "התחברות לא זמינה כעת. נסה שוב בעוד רגע.";
+  }
+  return "לא הצלחנו להתחבר. נסה שוב.";
+}
+
 function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
       await authService.signIn(email, password);
       navigate({ to: "/dashboard" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(prettyAuthError(message));
     } finally {
       setSubmitting(false);
     }
@@ -57,6 +76,11 @@ function LoginPage() {
                 onChange={setPassword}
                 placeholder="••••••••"
               />
+              {error && (
+                <p className="text-small text-danger" role="alert">
+                  {error}
+                </p>
+              )}
               <PrimaryButton size="lg" className="w-full" type="submit" disabled={submitting}>
                 {submitting ? "מתחבר…" : "התחבר"}
               </PrimaryButton>

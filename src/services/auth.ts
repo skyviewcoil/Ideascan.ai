@@ -1,175 +1,136 @@
-// Auth service. Mock implementation today; signature is stable so a real
-// provider (email/password, OAuth, Supabase, Clerk, etc.) can replace the
-// body without touching callers.
+// Auth service. Backed by Supabase Auth (email + password). Public
+// interface is unchanged so routes / guards / UI keep working:
+//   getCurrentUser / requireUser / isAuthenticated
+//   signIn / signUp / signOut
+//   onSessionChange
 //
-// The service also owns one-time migration from the previous-pass unscoped
-// storage keys (`ideascan:v1:ideas`, `ideascan:v1:answers`) into the
-// current user's namespace.
+// When Supabase is not configured (`VITE_SUPABASE_URL` / anon key
+// missing) the service behaves as an unauthenticated session:
+// getCurrentUser returns null, isAuthenticated returns false, sign-in
+// and sign-up throw a configuration error. The _authed guard redirects
+// to /login in that case — the app still loads, just without auth.
 
-import type { Session, User } from "@/types";
-import { isBrowser, readKey, readRaw, removeKey, removeRaw, writeKey } from "./storage";
+import type { Session as AppSession, User } from "@/types";
+import { getSupabase } from "@/lib/supabase";
 
-// Default guest identity. Matches the previous-pass hard-coded user so
-// existing localStorage data migrates cleanly into u_1's namespace and
-// the UX (greeting, header) does not change.
-const GUEST_USER: User = {
-  id: "u_1",
-  name: "דניאל",
-  email: "daniel@example.com",
-};
-
-type Listener = (session: Session | null) => void;
+type Listener = (session: AppSession | null) => void;
 const listeners = new Set<Listener>();
+let authStateSubscribed = false;
 
-function emit(session: Session | null) {
+function emit(session: AppSession | null) {
   for (const fn of listeners) fn(session);
 }
 
-function persist(session: Session | null) {
-  if (!isBrowser()) return;
-  if (session) {
-    writeKey("session", session);
-  } else {
-    removeKey("session");
-  }
-  emit(session);
+function subscribeToAuthStateOnce() {
+  if (authStateSubscribed) return;
+  const client = getSupabase();
+  if (!client) return;
+  authStateSubscribed = true;
+  client.auth.onAuthStateChange((_event, session) => {
+    emit(session ? toAppSession(session.user) : null);
+  });
 }
 
-// One-time migration: if the previous pass left behind unscoped keys,
-// move them under the active user so data carries over instead of being
-// shadowed. Safe to call repeatedly — no-op once the old keys are gone.
-function migrateUnscopedData(userId: string) {
-  if (!isBrowser()) return;
+type SupabaseUserLike = {
+  id: string;
+  email?: string;
+  user_metadata?: { name?: string };
+};
 
-  const legacyIdeas = readRaw("ideas");
-  if (legacyIdeas !== null) {
-    const alreadyScoped = readKey<unknown>("ideas", userId);
-    if (!alreadyScoped) {
-      try {
-        writeKey("ideas", JSON.parse(legacyIdeas), userId);
-      } catch {
-        // Ignore corrupted legacy data — we just drop it.
-      }
-    }
-    removeRaw("ideas");
-  }
-
-  const legacyAnswers = readRaw("answers");
-  if (legacyAnswers !== null) {
-    const alreadyScoped = readKey<unknown>("answers", userId);
-    if (!alreadyScoped) {
-      try {
-        writeKey("answers", JSON.parse(legacyAnswers), userId);
-      } catch {
-        // Drop corrupted legacy data.
-      }
-    }
-    removeRaw("answers");
-  }
-}
-
-function ensureGuestSession(): Session {
-  const existing = readKey<Session>("session");
-  if (existing) {
-    // Run migration opportunistically in case the browser had legacy keys
-    // from before the session file existed.
-    migrateUnscopedData(existing.user.id);
-    return existing;
-  }
-  const session: Session = {
-    user: GUEST_USER,
-    provider: "guest",
+function toAppSession(u: SupabaseUserLike): AppSession {
+  const name = u.user_metadata?.name?.trim() || (u.email ? u.email.split("@")[0] : "משתמש");
+  return {
+    user: {
+      id: u.id,
+      name,
+      email: u.email ?? "",
+    },
+    provider: "email",
     issued_at: new Date().toISOString(),
   };
-  persist(session);
-  migrateUnscopedData(session.user.id);
-  return session;
-}
-
-// Internal session resolver — used by getCurrentUser / isAuthenticated.
-// Kept module-private so the public API stays user-centric.
-function resolveSession(): Session | null {
-  if (!isBrowser()) {
-    // SSR has no storage and no per-user data — render as the public
-    // guest so routes that do not require auth still work. The route
-    // guard runs on the client after hydration and redirects there.
-    return {
-      user: GUEST_USER,
-      provider: "guest",
-      issued_at: "1970-01-01T00:00:00.000Z",
-    };
-  }
-  return ensureGuestSession();
 }
 
 export interface AuthService {
   getCurrentUser(): Promise<User | null>;
   requireUser(): Promise<User>;
   isAuthenticated(): Promise<boolean>;
-  signIn(email: string, password: string): Promise<Session>;
-  signUp(input: { name: string; email: string; password: string }): Promise<Session>;
+  signIn(email: string, password: string): Promise<AppSession>;
+  signUp(input: { name: string; email: string; password: string }): Promise<AppSession>;
   signOut(): Promise<void>;
   onSessionChange(listener: Listener): () => void;
 }
 
 export const authService: AuthService = {
   async getCurrentUser() {
-    return resolveSession()?.user ?? null;
+    const client = getSupabase();
+    if (!client) return null;
+    subscribeToAuthStateOnce();
+    const { data } = await client.auth.getUser();
+    if (!data.user) return null;
+    const session = toAppSession(data.user as SupabaseUserLike);
+    return session.user;
   },
 
   async requireUser() {
-    const user = resolveSession()?.user;
-    if (!user) {
-      throw new Error("Not authenticated");
-    }
+    const user = await authService.getCurrentUser();
+    if (!user) throw new Error("Not authenticated");
     return user;
   },
 
   async isAuthenticated() {
-    return resolveSession() !== null;
+    const client = getSupabase();
+    if (!client) return false;
+    subscribeToAuthStateOnce();
+    const { data } = await client.auth.getSession();
+    return !!data.session;
   },
 
-  async signIn(email, _password) {
-    // No real credential check — the mock provider accepts anything and
-    // binds the entered email to the existing guest identity so all data
-    // the user has already created remains visible after sign-in.
-    const current = readKey<Session>("session");
-    const user: User = current
-      ? { ...current.user, email: email.trim() || current.user.email }
-      : { ...GUEST_USER, email: email.trim() || GUEST_USER.email };
-    const session: Session = {
-      user,
-      provider: "mock",
-      issued_at: new Date().toISOString(),
-    };
-    persist(session);
-    migrateUnscopedData(session.user.id);
+  async signIn(email, password) {
+    const client = getSupabase();
+    if (!client)
+      throw new Error(
+        "Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
+      );
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (!data.user) throw new Error("Sign-in succeeded but no user returned");
+    const session = toAppSession(data.user as SupabaseUserLike);
+    emit(session);
     return session;
   },
 
-  async signUp({ name, email }) {
-    // A real signup would create a new user id. For continuity with the
-    // local guest data we keep `u_1` for now; when a real backend lands
-    // this switches to whatever id the server returns.
-    const session: Session = {
-      user: {
-        id: GUEST_USER.id,
-        name: name.trim() || GUEST_USER.name,
-        email: email.trim() || GUEST_USER.email,
-      },
-      provider: "mock",
-      issued_at: new Date().toISOString(),
-    };
-    persist(session);
-    migrateUnscopedData(session.user.id);
+  async signUp({ name, email, password }) {
+    const client = getSupabase();
+    if (!client)
+      throw new Error(
+        "Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
+      );
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    });
+    if (error) throw error;
+    if (!data.user) {
+      // Supabase returns user=null when email confirmation is required.
+      // Surface a recognizable message so the login form can tell the
+      // user to check their inbox.
+      throw new Error("CHECK_EMAIL");
+    }
+    const session = toAppSession(data.user as SupabaseUserLike);
+    emit(session);
     return session;
   },
 
   async signOut() {
-    persist(null);
+    const client = getSupabase();
+    if (!client) return;
+    await client.auth.signOut();
+    emit(null);
   },
 
   onSessionChange(listener) {
+    subscribeToAuthStateOnce();
     listeners.add(listener);
     return () => {
       listeners.delete(listener);

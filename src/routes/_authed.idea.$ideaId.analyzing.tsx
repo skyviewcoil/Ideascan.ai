@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { EmptyState } from "@/components/states/EmptyState";
 import { LoadingState } from "@/components/states/LoadingState";
@@ -18,14 +18,19 @@ const STAGES = [
   "בונים דוח ותוכנית בדיקה",
 ];
 
+type Status = "checking" | "missing" | "running" | "failed";
+
 function AnalyzingPage() {
   const { ideaId } = Route.useParams();
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState<"checking" | "missing" | "running">("checking");
+  const [status, setStatus] = useState<Status>("checking");
   const [stage, setStage] = useState(0);
+  const generationDone = useRef(false);
 
-  // Kick off the (mock) evaluation once we've confirmed the idea exists.
+  // Verify the idea, then kick off evaluation. Generation happens in
+  // parallel with the stage animation so the user sees continuous
+  // progress even on a slow AI call.
   useEffect(() => {
     let cancelled = false;
     ideasService.get(ideaId).then((idea) => {
@@ -35,22 +40,34 @@ function AnalyzingPage() {
         return;
       }
       setStatus("running");
-      evaluationService.generate(ideaId);
+      evaluationService.generate(ideaId).then(
+        () => {
+          generationDone.current = true;
+        },
+        (err) => {
+          if (cancelled) return;
+          console.warn("[analyzing] generation failed:", err);
+          setStatus("failed");
+        },
+      );
     });
     return () => {
       cancelled = true;
     };
   }, [ideaId]);
 
-  // Stage animation + redirect once evaluation + animation both finish.
+  // Stage animation. Waits for generationDone before the final
+  // navigation so the user never lands on an empty report.
   useEffect(() => {
     if (status !== "running") return;
     if (stage >= STAGES.length) {
-      const t = window.setTimeout(
-        () => navigate({ to: "/report/$ideaId", params: { ideaId } }),
-        600,
-      );
-      return () => window.clearTimeout(t);
+      const poll = window.setInterval(() => {
+        if (generationDone.current) {
+          window.clearInterval(poll);
+          navigate({ to: "/report/$ideaId", params: { ideaId } });
+        }
+      }, 300);
+      return () => window.clearInterval(poll);
     }
     const t = window.setTimeout(() => setStage((s) => s + 1), 900);
     return () => window.clearTimeout(t);
@@ -71,6 +88,24 @@ function AnalyzingPage() {
           <EmptyState
             title="הרעיון לא נמצא"
             description="לא ניתן להפיק דוח — הרעיון לא קיים או נמחק."
+            action={
+              <Link to="/dashboard">
+                <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
+              </Link>
+            }
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <AppShell headerVariant="minimal">
+        <div className="container-app py-16">
+          <EmptyState
+            title="הפקת הדוח נכשלה"
+            description="אירעה שגיאה בזמן יצירת הדוח. נסה שוב בעוד רגע."
             action={
               <Link to="/dashboard">
                 <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>

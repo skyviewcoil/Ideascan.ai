@@ -15,20 +15,51 @@ export const Route = createFileRoute("/signup")({
   component: SignupPage,
 });
 
+function prettySignupError(message: string): string {
+  const m = message.toLowerCase();
+  if (
+    m.includes("already registered") ||
+    m.includes("user_already_exists") ||
+    m.includes("email_exists")
+  ) {
+    return "כתובת האימייל כבר רשומה. התחבר במקום.";
+  }
+  if (m.includes("password") && m.includes("short")) {
+    return "הסיסמה קצרה מדי.";
+  }
+  if (m.includes("invalid email") || m.includes("email_address_invalid")) {
+    return "כתובת אימייל לא תקינה.";
+  }
+  if (m.includes("supabase is not configured")) {
+    return "הרשמה לא זמינה כעת. נסה שוב בעוד רגע.";
+  }
+  return "ההרשמה נכשלה. נסה שוב.";
+}
+
 function SignupPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
+    setError(null);
     try {
       await authService.signUp({ name, email, password });
       navigate({ to: "/dashboard" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message === "CHECK_EMAIL") {
+        setConfirmEmail(true);
+      } else {
+        setError(prettySignupError(message));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -43,6 +74,14 @@ function SignupPage() {
             <p className="mt-2 text-body text-muted-foreground">
               נתחיל בבדיקה הראשונה שלך תוך דקה.
             </p>
+            {confirmEmail && (
+              <div
+                className="mt-4 rounded-lg border border-success/40 bg-success/5 p-4 text-body text-foreground"
+                role="status"
+              >
+                שלחנו אליך מייל אישור. לאחר לחיצה על הקישור תוכל להתחבר.
+              </div>
+            )}
             <form onSubmit={submit} className="mt-6 space-y-4">
               <InputField
                 id="name"
@@ -67,6 +106,11 @@ function SignupPage() {
                 onChange={setPassword}
                 placeholder="לפחות 8 תווים"
               />
+              {error && (
+                <p className="text-small text-danger" role="alert">
+                  {error}
+                </p>
+              )}
               <PrimaryButton size="lg" className="w-full" type="submit" disabled={submitting}>
                 {submitting ? "יוצר חשבון…" : "צור חשבון"}
               </PrimaryButton>
