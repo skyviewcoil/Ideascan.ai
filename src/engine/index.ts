@@ -73,7 +73,17 @@ export function buildReport(
   const section_insights = ai?.sections
     ? deterministicSections.map((det) => {
         const aiInsight = ai.sections!.insights.find((x) => x.section === det.section);
-        return aiInsight ? { ...det, note: aiInsight.short_insight } : det;
+        return aiInsight
+          ? {
+              ...det,
+              note: aiInsight.short_insight,
+              // Carry through the two narrative extras so the UI (or a
+              // print/export path) can surface them without touching the
+              // AI layer directly.
+              key_warning: aiInsight.key_warning,
+              positive_signal: aiInsight.positive_signal,
+            }
+          : det;
       })
     : deterministicSections;
 
@@ -95,7 +105,15 @@ export function buildReport(
   const strengths = ai?.final?.strengths ?? deterministicStrengths;
   const weaknesses = ai?.final?.weaknesses ?? deterministicWeaknesses;
   const critical_assumption = ai?.final?.critical_assumption ?? deterministicCritical;
-  const recommendation = ai?.final?.recommended_mvp ?? deterministicRecommendation;
+  // `recommendation` is the "next step" paragraph the user sees under
+  // המלצה ישירה. `why_not_ready_yet` is null only when the decision is
+  // `go` (per prompt contract), so preferring it routes non-go decisions
+  // to the "what's missing" text and avoids the contradiction of
+  // showing "build this MVP" under a `not_now` / `validate_first`
+  // decision. `recommended_mvp` remains available on its own field for
+  // any UI that wants to surface the concrete MVP suggestion.
+  const recommendation =
+    ai?.final?.why_not_ready_yet ?? ai?.final?.recommended_mvp ?? deterministicRecommendation;
 
   const narrative_source: "ai" | "deterministic" | "hybrid" = ai
     ? ai.sections && ai.final && ai.validation

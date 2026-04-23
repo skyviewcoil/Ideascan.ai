@@ -79,6 +79,11 @@ export interface SectionInsight {
   score: number; // 0–100
   status: "empty" | "weak" | "ok" | "strong";
   note: string;
+  // Optional AI-generated extensions. When the narrative pass succeeds
+  // these carry the section-level warning and positive framing so the UI
+  // can render them without a second data source.
+  key_warning?: string | null;
+  positive_signal?: string | null;
 }
 
 export interface Flag {
