@@ -11,8 +11,8 @@
 import type { Idea, IdeaAnswer, IdeaStatus, Report } from "@/types";
 import { QUESTIONS } from "@/config/questions";
 import { MOCK_IDEAS } from "@/data/mock/ideas";
-import { MOCK_REPORT } from "@/data/mock/report";
 import { MOCK_ANSWERS } from "@/data/mock/answers";
+import { buildReport } from "@/engine";
 import { isBrowser, readKey, writeKey } from "./storage";
 import { authService } from "./auth";
 
@@ -198,9 +198,10 @@ export const answersService = {
 
 // ── evaluationService ──────────────────────────────────────
 export const evaluationService = {
-  // Called when the user finishes step 5 and reaches /analyzing. For now
-  // this just flips idea status so the report route starts returning a
-  // report.
+  // Called when the user finishes step 5 and reaches /analyzing. Runs the
+  // deterministic engine once against the saved answers (validating that
+  // evaluation produces a result) and flips idea status so the report
+  // route starts returning a report.
   async generate(ideaId: string): Promise<{ ok: true }> {
     await delay(300);
     const uid = await currentUserId();
@@ -208,6 +209,11 @@ export const evaluationService = {
     const ideas = loadIdeas(uid);
     const idx = ideas.findIndex((i) => i.id === ideaId);
     if (idx < 0) return { ok: true };
+    // The engine itself is pure, so we don't need to persist its output —
+    // reportsService.getForIdea regenerates it on demand. We still call it
+    // here to fail fast on any evaluation error and keep parity with how a
+    // real backend would behave.
+    buildReport(ideas[idx], loadAnswers(uid)[ideaId] ?? {});
     ideas[idx] = {
       ...ideas[idx],
       status: "report_ready",
@@ -227,10 +233,10 @@ export const reportsService = {
     if (!idea) return null;
     const hasReport = idea.status === "report_ready" || idea.status === "needs_update";
     if (!hasReport) return null;
-    return {
-      ...MOCK_REPORT,
-      idea_id: idea.id,
+    const answers = loadAnswers(uid)[ideaId] ?? {};
+    return buildReport(idea, answers, {
       is_stale: idea.status === "needs_update",
-    };
+      generated_at: idea.updated_at,
+    });
   },
 };
