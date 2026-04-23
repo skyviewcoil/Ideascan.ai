@@ -79,6 +79,11 @@ export interface SectionInsight {
   score: number; // 0–100
   status: "empty" | "weak" | "ok" | "strong";
   note: string;
+  // Optional AI-generated extensions. When the narrative pass succeeds
+  // these carry the section-level warning and positive framing so the UI
+  // can render them without a second data source.
+  key_warning?: string | null;
+  positive_signal?: string | null;
 }
 
 export interface Flag {
@@ -125,6 +130,12 @@ export interface Report {
   contradictions: Contradiction[];
   validation_plan: ValidationPlanItem[];
   recommendation: string;
+  // Optional AI-generated extensions — populated when the server
+  // narrative pass succeeded, otherwise omitted. The UI can render these
+  // incrementally without a schema bump.
+  why_not_ready_yet?: string;
+  recommended_mvp?: string;
+  narrative_source?: "ai" | "deterministic" | "hybrid";
 }
 
 export interface IdeaRevision {

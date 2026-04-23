@@ -14,7 +14,7 @@
 
 const KEY_PREFIX = "ideascan:v1:";
 
-export type StorageKey = "ideas" | "answers" | "session";
+export type StorageKey = "ideas" | "answers" | "session" | "narratives";
 
 function hasLocalStorage(): boolean {
   return (
