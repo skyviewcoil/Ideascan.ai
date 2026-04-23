@@ -3,6 +3,8 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 import { StatusBadge } from "@/components/ui-kit/StatusBadge";
 import { EmptyState } from "@/components/states/EmptyState";
+import { LoadingState } from "@/components/states/LoadingState";
+import { useAsyncData } from "@/hooks/useAsyncData";
 import { ideasService } from "@/services";
 import type { Idea } from "@/types";
 
@@ -13,7 +15,6 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "ניהול ובדיקה של רעיונות עסקיים." },
     ],
   }),
-  loader: () => ideasService.list(),
   component: DashboardPage,
 });
 
@@ -77,47 +78,60 @@ function IdeaCard({ idea }: { idea: Idea }) {
 }
 
 function DashboardPage() {
-  const ideas = Route.useLoaderData();
-  const isEmpty = ideas.length === 0;
+  const state = useAsyncData(() => ideasService.list(), []);
 
   return (
     <AppShell headerVariant="full">
       <div className="container-app py-10">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-small text-muted-foreground">שלום, דניאל</p>
-            <h1 className="mt-1 font-heading text-3xl font-bold sm:text-4xl">הרעיונות שלי</h1>
-            <p className="mt-2 text-body text-muted-foreground">
-              {isEmpty
-                ? "עדיין לא בדקת רעיון. בוא נתחיל."
-                : `יש לך ${ideas.length} רעיונות פעילים.`}
-            </p>
-          </div>
-          <Link to="/idea/new">
-            <PrimaryButton size="lg">+ רעיון חדש</PrimaryButton>
-          </Link>
-        </header>
+        {state.status === "loading" && <LoadingState />}
 
-        <div className="mt-8">
-          {isEmpty ? (
-            <EmptyState
-              title="עדיין אין רעיונות"
-              description="התחל את הבדיקה הראשונה שלך וקבל דוח החלטה תוך כ־15 דקות."
-              action={
-                <Link to="/idea/new">
-                  <PrimaryButton size="lg">התחל רעיון ראשון</PrimaryButton>
-                </Link>
-              }
-            />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {ideas.map((idea) => (
-                <IdeaCard key={idea.id} idea={idea} />
-              ))}
-            </div>
-          )}
-        </div>
+        {state.status === "error" && (
+          <EmptyState title="טעינת הרעיונות נכשלה" description="נסה לרענן את הדף." />
+        )}
+
+        {state.status === "ready" && <DashboardBody ideas={state.data} />}
       </div>
     </AppShell>
+  );
+}
+
+function DashboardBody({ ideas }: { ideas: Idea[] }) {
+  const isEmpty = ideas.length === 0;
+
+  return (
+    <>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-small text-muted-foreground">שלום, דניאל</p>
+          <h1 className="mt-1 font-heading text-3xl font-bold sm:text-4xl">הרעיונות שלי</h1>
+          <p className="mt-2 text-body text-muted-foreground">
+            {isEmpty ? "עדיין לא בדקת רעיון. בוא נתחיל." : `יש לך ${ideas.length} רעיונות פעילים.`}
+          </p>
+        </div>
+        <Link to="/idea/new">
+          <PrimaryButton size="lg">+ רעיון חדש</PrimaryButton>
+        </Link>
+      </header>
+
+      <div className="mt-8">
+        {isEmpty ? (
+          <EmptyState
+            title="עדיין אין רעיונות"
+            description="התחל את הבדיקה הראשונה שלך וקבל דוח החלטה תוך כ־15 דקות."
+            action={
+              <Link to="/idea/new">
+                <PrimaryButton size="lg">התחל רעיון ראשון</PrimaryButton>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {ideas.map((idea) => (
+              <IdeaCard key={idea.id} idea={idea} />
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

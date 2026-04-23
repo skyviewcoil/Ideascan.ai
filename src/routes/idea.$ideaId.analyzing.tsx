@@ -1,15 +1,13 @@
-import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
-import { ideasService } from "@/services";
+import { EmptyState } from "@/components/states/EmptyState";
+import { LoadingState } from "@/components/states/LoadingState";
+import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
+import { evaluationService, ideasService } from "@/services";
 
 export const Route = createFileRoute("/idea/$ideaId/analyzing")({
   head: () => ({ meta: [{ title: "מנתח את הרעיון…" }] }),
-  loader: async ({ params }) => {
-    const idea = await ideasService.get(params.ideaId);
-    if (!idea) throw notFound();
-    return { ideaId: idea.id };
-  },
   component: AnalyzingPage,
 });
 
@@ -21,11 +19,32 @@ const STAGES = [
 ];
 
 function AnalyzingPage() {
-  const { ideaId } = Route.useLoaderData();
+  const { ideaId } = Route.useParams();
   const navigate = useNavigate();
+
+  const [status, setStatus] = useState<"checking" | "missing" | "running">("checking");
   const [stage, setStage] = useState(0);
 
+  // Kick off the (mock) evaluation once we've confirmed the idea exists.
   useEffect(() => {
+    let cancelled = false;
+    ideasService.get(ideaId).then((idea) => {
+      if (cancelled) return;
+      if (!idea) {
+        setStatus("missing");
+        return;
+      }
+      setStatus("running");
+      evaluationService.generate(ideaId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [ideaId]);
+
+  // Stage animation + redirect once evaluation + animation both finish.
+  useEffect(() => {
+    if (status !== "running") return;
     if (stage >= STAGES.length) {
       const t = window.setTimeout(
         () => navigate({ to: "/report/$ideaId", params: { ideaId } }),
@@ -35,7 +54,33 @@ function AnalyzingPage() {
     }
     const t = window.setTimeout(() => setStage((s) => s + 1), 900);
     return () => window.clearTimeout(t);
-  }, [stage, navigate, ideaId]);
+  }, [status, stage, navigate, ideaId]);
+
+  if (status === "checking") {
+    return (
+      <AppShell headerVariant="minimal">
+        <LoadingState />
+      </AppShell>
+    );
+  }
+
+  if (status === "missing") {
+    return (
+      <AppShell headerVariant="minimal">
+        <div className="container-app py-16">
+          <EmptyState
+            title="הרעיון לא נמצא"
+            description="לא ניתן להפיק דוח — הרעיון לא קיים או נמחק."
+            action={
+              <Link to="/dashboard">
+                <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
+              </Link>
+            }
+          />
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell headerVariant="minimal">

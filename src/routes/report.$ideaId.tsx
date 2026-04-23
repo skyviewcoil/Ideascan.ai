@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 import { DecisionBadge } from "@/components/report/DecisionBadge";
@@ -9,8 +9,10 @@ import { ValidationPlanList } from "@/components/report/ValidationPlanList";
 import { ReportSection } from "@/components/report/ReportSection";
 import { StaleReportBanner } from "@/components/report/StaleReportBanner";
 import { EmptyState } from "@/components/states/EmptyState";
+import { LoadingState } from "@/components/states/LoadingState";
+import { useAsyncData } from "@/hooks/useAsyncData";
 import { ideasService, reportsService } from "@/services";
-import type { Idea } from "@/types";
+import type { Idea, Report } from "@/types";
 
 export const Route = createFileRoute("/report/$ideaId")({
   head: () => ({
@@ -22,59 +24,87 @@ export const Route = createFileRoute("/report/$ideaId")({
       },
     ],
   }),
-  loader: async ({ params }) => {
-    const idea = await ideasService.get(params.ideaId);
-    if (!idea) throw notFound();
-    const report = await reportsService.getForIdea(params.ideaId);
-    return { idea, report };
-  },
   component: ReportPage,
-  notFoundComponent: ReportNotFound,
 });
 
-function ReportNotFound() {
-  return (
-    <AppShell headerVariant="minimal">
-      <div className="container-app py-16">
-        <EmptyState
-          title="הדוח לא נמצא"
-          description="הרעיון שביקשת לא קיים או נמחק."
-          action={
-            <Link to="/dashboard">
-              <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
-            </Link>
-          }
-        />
-      </div>
-    </AppShell>
-  );
-}
-
-function ReportPending({ idea }: { idea: Idea }) {
-  return (
-    <AppShell headerVariant="minimal">
-      <div className="container-app py-16">
-        <EmptyState
-          title="הדוח עוד לא מוכן"
-          description={`הרעיון "${idea.name}" עדיין בטיוטה. השלם את הניתוח כדי להפיק דוח החלטה.`}
-          action={
-            <Link to="/idea/$ideaId/step-1" params={{ ideaId: idea.id }}>
-              <PrimaryButton>המשך מילוי</PrimaryButton>
-            </Link>
-          }
-        />
-      </div>
-    </AppShell>
-  );
-}
-
 function ReportPage() {
-  const { idea, report } = Route.useLoaderData();
+  const { ideaId } = Route.useParams();
+  const state = useAsyncData(async () => {
+    const [idea, report] = await Promise.all([
+      ideasService.get(ideaId),
+      reportsService.getForIdea(ideaId),
+    ]);
+    return { idea, report };
+  }, [ideaId]);
 
-  if (!report) {
-    return <ReportPending idea={idea} />;
+  if (state.status === "loading") {
+    return (
+      <AppShell headerVariant="minimal">
+        <LoadingState />
+      </AppShell>
+    );
   }
 
+  if (state.status === "error") {
+    return (
+      <AppShell headerVariant="minimal">
+        <div className="container-app py-16">
+          <EmptyState
+            title="טעינת הדוח נכשלה"
+            description="נסה לרענן את הדף."
+            action={
+              <Link to="/dashboard">
+                <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
+              </Link>
+            }
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  const { idea, report } = state.data;
+
+  if (!idea) {
+    return (
+      <AppShell headerVariant="minimal">
+        <div className="container-app py-16">
+          <EmptyState
+            title="הדוח לא נמצא"
+            description="הרעיון שביקשת לא קיים או נמחק."
+            action={
+              <Link to="/dashboard">
+                <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
+              </Link>
+            }
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!report) {
+    return (
+      <AppShell headerVariant="minimal">
+        <div className="container-app py-16">
+          <EmptyState
+            title="הדוח עוד לא מוכן"
+            description={`הרעיון "${idea.name}" עדיין בטיוטה. השלם את הניתוח כדי להפיק דוח החלטה.`}
+            action={
+              <Link to="/idea/$ideaId/step-1" params={{ ideaId: idea.id }}>
+                <PrimaryButton>המשך מילוי</PrimaryButton>
+              </Link>
+            }
+          />
+        </div>
+      </AppShell>
+    );
+  }
+
+  return <ReportContent idea={idea} report={report} />;
+}
+
+function ReportContent({ idea, report }: { idea: Idea; report: Report }) {
   return (
     <AppShell headerVariant="full">
       <div className="container-app py-10">
