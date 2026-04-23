@@ -15,6 +15,8 @@ import { MOCK_IDEAS } from "@/data/mock/ideas";
 import { MOCK_ANSWERS } from "@/data/mock/answers";
 import { buildReport, evaluate, toEvaluationInput } from "@/engine";
 import { narrateFn } from "@/server/narrate";
+import { log } from "@/ai/logger";
+import { checkRate, recordGeneration } from "@/ai/rateGuard";
 import { isBrowser, readKey, writeKey } from "./storage";
 import { authService } from "./auth";
 
@@ -254,21 +256,28 @@ function persistNarrative(userId: string, ideaId: string, entry: NarrativeCacheE
 
 async function fetchNarrative(
   idea: Idea,
+  userId: string,
   answers: Record<string, IdeaAnswer["value"]>,
 ): Promise<AINarrative | null> {
   try {
     const evaluation = evaluate(answers);
     const input = toEvaluationInput(idea, evaluation);
     // Calls the server function; on the client this becomes an HTTP POST.
-    return await narrateFn({ data: input });
+    return await narrateFn({
+      data: { evaluation: input, idea_id: idea.id, user_id: userId },
+    });
   } catch (err) {
-    // Network error, schema rejection, or missing API key on the server
-    // — any of these mean "no AI narrative this time". The caller falls
-    // back to the deterministic text.
-    if (typeof console !== "undefined") {
-      const message = err instanceof Error ? err.message : String(err);
-      console.warn("[reportsService] narrative fetch failed:", message);
-    }
+    // Network failure crossing the client→server seam. The server
+    // handler already catches provider errors; reaching here means the
+    // HTTP transport itself failed (e.g., offline, CORS). Fall back to
+    // deterministic.
+    const message = err instanceof Error ? err.message : String(err);
+    log("warn", "narrate.fallback", {
+      idea_id: idea.id,
+      user_id: userId,
+      reason: "transport_error",
+      error_message: message.slice(0, 200),
+    });
     return null;
   }
 }
@@ -293,14 +302,38 @@ export const reportsService = {
       const cached = cache[ideaId];
       if (cached && cached.idea_updated_at === idea.updated_at) {
         narrative = cached.narrative;
+        log("info", "report.cache_hit", { idea_id: ideaId, user_id: uid });
       } else {
-        narrative = await fetchNarrative(idea, answers);
-        if (narrative) {
-          persistNarrative(uid, ideaId, {
-            narrative,
-            idea_updated_at: idea.updated_at,
-            generated_at: new Date().toISOString(),
+        // Rate guard — prevents edit-revert-edit spam from burning
+        // inference budget. On a block, the deterministic floor renders
+        // the report and the user sees a slightly stale (or first-time
+        // deterministic) narrative instead.
+        const rate = checkRate(uid);
+        if (!rate.allowed) {
+          log("warn", "narrate.rate_limited", {
+            idea_id: ideaId,
+            user_id: uid,
+            reason: rate.reason,
+            count: rate.count,
+            window_ms: rate.window_ms,
           });
+          // Fall back to the last cached narrative if we have one — even
+          // if stale by updated_at — so rate-limited users still see AI
+          // text they've seen before.
+          narrative = cached?.narrative ?? null;
+        } else {
+          log("info", "report.cache_miss", { idea_id: ideaId, user_id: uid });
+          narrative = await fetchNarrative(idea, uid, answers);
+          // Record the attempt whether the AI succeeded or not — a
+          // failed call still consumed network/inference budget.
+          recordGeneration(uid);
+          if (narrative) {
+            persistNarrative(uid, ideaId, {
+              narrative,
+              idea_updated_at: idea.updated_at,
+              generated_at: new Date().toISOString(),
+            });
+          }
         }
       }
     }
