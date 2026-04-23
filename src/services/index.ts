@@ -9,10 +9,12 @@
 // again with the same id restores it).
 
 import type { Idea, IdeaAnswer, IdeaStatus, Report } from "@/types";
+import type { AINarrative } from "@/ai/schema";
 import { QUESTIONS } from "@/config/questions";
 import { MOCK_IDEAS } from "@/data/mock/ideas";
 import { MOCK_ANSWERS } from "@/data/mock/answers";
-import { buildReport } from "@/engine";
+import { buildReport, evaluate, toEvaluationInput } from "@/engine";
+import { narrateFn } from "@/server/narrate";
 import { isBrowser, readKey, writeKey } from "./storage";
 import { authService } from "./auth";
 
@@ -20,6 +22,16 @@ export { authService } from "./auth";
 export type { AuthService } from "./auth";
 
 type AnswersByIdea = Record<string, Record<string, IdeaAnswer["value"]>>;
+
+// Narrative cache — keyed by idea, pinned to the idea's updated_at.
+// When a user edits an answer `updated_at` bumps and the cached
+// narrative is invalidated automatically.
+type NarrativeCacheEntry = {
+  narrative: AINarrative;
+  idea_updated_at: string;
+  generated_at: string;
+};
+type NarrativeCacheByIdea = Record<string, NarrativeCacheEntry>;
 
 function delay(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -224,6 +236,43 @@ export const evaluationService = {
   },
 };
 
+// ── narrative cache helpers ─────────────────────────────────
+function loadNarratives(userId: string | null): NarrativeCacheByIdea {
+  if (!isBrowser() || !userId) return {};
+  return readKey<NarrativeCacheByIdea>("narratives", userId) ?? {};
+}
+
+function persistNarrative(userId: string, ideaId: string, entry: NarrativeCacheEntry) {
+  const cache = loadNarratives(userId);
+  cache[ideaId] = entry;
+  try {
+    writeKey<NarrativeCacheByIdea>("narratives", cache, userId);
+  } catch {
+    // Non-fatal — next view regenerates. Don't fail the report render.
+  }
+}
+
+async function fetchNarrative(
+  idea: Idea,
+  answers: Record<string, IdeaAnswer["value"]>,
+): Promise<AINarrative | null> {
+  try {
+    const evaluation = evaluate(answers);
+    const input = toEvaluationInput(idea, evaluation);
+    // Calls the server function; on the client this becomes an HTTP POST.
+    return await narrateFn({ data: input });
+  } catch (err) {
+    // Network error, schema rejection, or missing API key on the server
+    // — any of these mean "no AI narrative this time". The caller falls
+    // back to the deterministic text.
+    if (typeof console !== "undefined") {
+      const message = err instanceof Error ? err.message : String(err);
+      console.warn("[reportsService] narrative fetch failed:", message);
+    }
+    return null;
+  }
+}
+
 // ── reportsService ─────────────────────────────────────────
 export const reportsService = {
   async getForIdea(ideaId: string): Promise<Report | null> {
@@ -234,9 +283,32 @@ export const reportsService = {
     const hasReport = idea.status === "report_ready" || idea.status === "needs_update";
     if (!hasReport) return null;
     const answers = loadAnswers(uid)[ideaId] ?? {};
+
+    // AI narrative cache: use when the idea hasn't been edited since the
+    // narrative was generated. Stale reports (`needs_update`) always
+    // regenerate since the underlying answers changed.
+    let narrative: AINarrative | null = null;
+    if (uid) {
+      const cache = loadNarratives(uid);
+      const cached = cache[ideaId];
+      if (cached && cached.idea_updated_at === idea.updated_at) {
+        narrative = cached.narrative;
+      } else {
+        narrative = await fetchNarrative(idea, answers);
+        if (narrative) {
+          persistNarrative(uid, ideaId, {
+            narrative,
+            idea_updated_at: idea.updated_at,
+            generated_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
     return buildReport(idea, answers, {
       is_stale: idea.status === "needs_update",
       generated_at: idea.updated_at,
+      narrative,
     });
   },
 };
