@@ -222,7 +222,11 @@ function copyRisk(ease: NormalizedAnswers["ease_of_copy"]): Signals["copy_risk"]
 function legalRisk(text: string): Signals["legal_risk"] {
   const t = text.trim().toLowerCase();
   if (!t) return "unclear";
-  if (/^(אין|none|no|לא|n\/a)\b/i.test(t) && t.length < 15) return "none";
+  // `\b` is ASCII-only in JS regex, so we match the first non-space token
+  // explicitly — this is needed for Hebrew "אין" / "לא" / "ללא".
+  const firstToken = t.split(/\s+/)[0]?.replace(/[.,!?]+$/, "") ?? "";
+  const NEGATIVE = new Set(["אין", "ללא", "לא", "none", "no", "n/a", "na"]);
+  if (NEGATIVE.has(firstToken) && t.length < 15) return "none";
   if (hasAny(t, LEGAL_TOKENS) || t.length > 30) return "present";
   return "unclear";
 }
@@ -327,6 +331,11 @@ function assumptionTestAlignment(
   test: string,
 ): Signals["assumption_test_alignment"] {
   if (!assumption || !test) return "unknown";
+  // Hebrew inflects by prefix attachment (ש/ה/ב/מ/ל/כ/ו), so "שלקוחות"
+  // and "לקוחות" should match. A simple substring check handles both
+  // prefix and suffix attachments reliably without a dictionary — and
+  // avoids over-stripping cases where ל/ב/... is actually part of the
+  // root (e.g., "לקוחות" itself).
   const tokenize = (s: string) =>
     new Set(
       s
@@ -337,9 +346,13 @@ function assumptionTestAlignment(
     );
   const aTokens = tokenize(assumption);
   const tTokens = tokenize(test);
-  if (aTokens.size === 0 || tTokens.size === 0) return "unknown";
+  if (aTokens.size < 2 || tTokens.size < 2) return "unknown";
   let overlap = 0;
-  for (const w of aTokens) if (tTokens.has(w)) overlap++;
+  for (const x of aTokens) {
+    const match =
+      tTokens.has(x) || [...tTokens].some((y) => y.length >= 4 && (x.includes(y) || y.includes(x)));
+    if (match) overlap++;
+  }
   const ratio = overlap / Math.min(aTokens.size, tTokens.size);
   return ratio >= 0.2 ? "aligned" : "misaligned";
 }
