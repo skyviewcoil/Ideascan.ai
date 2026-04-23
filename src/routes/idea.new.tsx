@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { InputField } from "@/components/forms/InputField";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
+import { ideasService } from "@/services";
 
 export const Route = createFileRoute("/idea/new")({
   head: () => ({
@@ -32,10 +33,23 @@ function NewIdeaPage() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [market, setMarket] = useState("");
   const [region, setRegion] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/idea/step-1" });
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const idea = await ideasService.create({
+        name: name.trim() || "רעיון ללא שם",
+        category,
+        initial_market: market.trim(),
+        region: region.trim(),
+      });
+      navigate({ to: "/idea/$ideaId/step-1", params: { ideaId: idea.id } });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -50,7 +64,10 @@ function NewIdeaPage() {
             כמה פרטים בסיסיים, ואז נתחיל לבדוק.
           </p>
 
-          <form onSubmit={submit} className="mt-8 space-y-5 rounded-2xl border border-border bg-surface p-6 sm:p-8">
+          <form
+            onSubmit={submit}
+            className="mt-8 space-y-5 rounded-2xl border border-border bg-surface p-6 sm:p-8"
+          >
             <InputField
               id="name"
               label="שם הרעיון"
@@ -93,11 +110,14 @@ function NewIdeaPage() {
             />
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <Link to="/dashboard" className="text-label text-muted-foreground hover:text-foreground">
+              <Link
+                to="/dashboard"
+                className="text-label text-muted-foreground hover:text-foreground"
+              >
                 ביטול
               </Link>
-              <PrimaryButton size="lg" type="submit">
-                התחל ניתוח
+              <PrimaryButton size="lg" type="submit" disabled={submitting}>
+                {submitting ? "פותח רעיון…" : "התחל ניתוח"}
               </PrimaryButton>
             </div>
           </form>

@@ -8,27 +8,72 @@ import { ContradictionCard } from "@/components/report/ContradictionCard";
 import { ValidationPlanList } from "@/components/report/ValidationPlanList";
 import { ReportSection } from "@/components/report/ReportSection";
 import { StaleReportBanner } from "@/components/report/StaleReportBanner";
-import { MOCK_REPORT } from "@/data/mock/report";
-import { MOCK_IDEAS } from "@/data/mock/ideas";
+import { EmptyState } from "@/components/states/EmptyState";
+import { ideasService, reportsService } from "@/services";
+import type { Idea } from "@/types";
 
 export const Route = createFileRoute("/report/$ideaId")({
   head: () => ({
     meta: [
       { title: "דוח החלטה — Ideascan.ai" },
-      { name: "description", content: "דוח החלטה מלא: ציונים, חוזקות, חולשות, סתירות ותוכנית בדיקה." },
+      {
+        name: "description",
+        content: "דוח החלטה מלא: ציונים, חוזקות, חולשות, סתירות ותוכנית בדיקה.",
+      },
     ],
   }),
-  loader: ({ params }) => {
-    const idea = MOCK_IDEAS.find((i) => i.id === params.ideaId) ?? MOCK_IDEAS[0];
+  loader: async ({ params }) => {
+    const idea = await ideasService.get(params.ideaId);
     if (!idea) throw notFound();
-    const report = { ...MOCK_REPORT, idea_id: idea.id, is_stale: idea.status === "needs_update" };
+    const report = await reportsService.getForIdea(params.ideaId);
     return { idea, report };
   },
   component: ReportPage,
+  notFoundComponent: ReportNotFound,
 });
+
+function ReportNotFound() {
+  return (
+    <AppShell headerVariant="minimal">
+      <div className="container-app py-16">
+        <EmptyState
+          title="הדוח לא נמצא"
+          description="הרעיון שביקשת לא קיים או נמחק."
+          action={
+            <Link to="/dashboard">
+              <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
+            </Link>
+          }
+        />
+      </div>
+    </AppShell>
+  );
+}
+
+function ReportPending({ idea }: { idea: Idea }) {
+  return (
+    <AppShell headerVariant="minimal">
+      <div className="container-app py-16">
+        <EmptyState
+          title="הדוח עוד לא מוכן"
+          description={`הרעיון "${idea.name}" עדיין בטיוטה. השלם את הניתוח כדי להפיק דוח החלטה.`}
+          action={
+            <Link to="/idea/$ideaId/step-1" params={{ ideaId: idea.id }}>
+              <PrimaryButton>המשך מילוי</PrimaryButton>
+            </Link>
+          }
+        />
+      </div>
+    </AppShell>
+  );
+}
 
 function ReportPage() {
   const { idea, report } = Route.useLoaderData();
+
+  if (!report) {
+    return <ReportPending idea={idea} />;
+  }
 
   return (
     <AppShell headerVariant="full">
@@ -70,7 +115,9 @@ function ReportPage() {
               </div>
             </div>
           </div>
-          <p className="mt-6 max-w-3xl text-body-lg text-foreground">{report.summary.short_summary}</p>
+          <p className="mt-6 max-w-3xl text-body-lg text-foreground">
+            {report.summary.short_summary}
+          </p>
         </section>
 
         {/* SCORES */}
@@ -89,7 +136,10 @@ function ReportPage() {
         <ReportSection title="חוזקות מרכזיות">
           <ul className="grid gap-3 sm:grid-cols-2">
             {report.strengths.map((s, i) => (
-              <li key={i} className="rounded-2xl border border-success/20 bg-success/5 p-4 text-body">
+              <li
+                key={i}
+                className="rounded-2xl border border-success/20 bg-success/5 p-4 text-body"
+              >
                 {s}
               </li>
             ))}
@@ -99,7 +149,10 @@ function ReportPage() {
         <ReportSection title="חולשות מרכזיות">
           <ul className="grid gap-3 sm:grid-cols-2">
             {report.weaknesses.map((s, i) => (
-              <li key={i} className="rounded-2xl border border-warning/20 bg-warning/5 p-4 text-body">
+              <li
+                key={i}
+                className="rounded-2xl border border-warning/20 bg-warning/5 p-4 text-body"
+              >
                 {s}
               </li>
             ))}
@@ -126,10 +179,7 @@ function ReportPage() {
         </ReportSection>
 
         {/* CONTRADICTIONS */}
-        <ReportSection
-          title="פערים לוגיים שזוהו"
-          description="סתירות בין תשובות שונות שלך."
-        >
+        <ReportSection title="פערים לוגיים שזוהו" description="סתירות בין תשובות שונות שלך.">
           <div className="grid gap-4 sm:grid-cols-2">
             {report.contradictions.map((c) => (
               <ContradictionCard key={c.id} item={c} />

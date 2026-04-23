@@ -1,26 +1,68 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { DecisionBadge } from "@/components/report/DecisionBadge";
-import { MOCK_REPORT } from "@/data/mock/report";
-import { MOCK_IDEAS } from "@/data/mock/ideas";
+import { EmptyState } from "@/components/states/EmptyState";
+import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
+import { AppShell } from "@/components/layout/AppShell";
+import { ideasService, reportsService } from "@/services";
 import { SECTION_LABELS } from "@/types";
+import type { Idea } from "@/types";
 
 export const Route = createFileRoute("/report/$ideaId/print")({
   head: () => ({
-    meta: [
-      { title: "דוח להדפסה — Ideascan.ai" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "דוח להדפסה — Ideascan.ai" }, { name: "robots", content: "noindex" }],
   }),
-  loader: ({ params }) => {
-    const idea = MOCK_IDEAS.find((i) => i.id === params.ideaId) ?? MOCK_IDEAS[0];
+  loader: async ({ params }) => {
+    const idea = await ideasService.get(params.ideaId);
     if (!idea) throw notFound();
-    return { idea, report: { ...MOCK_REPORT, idea_id: idea.id } };
+    const report = await reportsService.getForIdea(params.ideaId);
+    return { idea, report };
   },
   component: PrintReportPage,
+  notFoundComponent: PrintNotFound,
 });
+
+function PrintNotFound() {
+  return (
+    <AppShell headerVariant="minimal">
+      <div className="container-app py-16">
+        <EmptyState
+          title="הדוח לא נמצא"
+          description="הרעיון שביקשת לא קיים או נמחק."
+          action={
+            <Link to="/dashboard">
+              <PrimaryButton>חזרה ללוח הבקרה</PrimaryButton>
+            </Link>
+          }
+        />
+      </div>
+    </AppShell>
+  );
+}
+
+function PrintPending({ idea }: { idea: Idea }) {
+  return (
+    <AppShell headerVariant="minimal">
+      <div className="container-app py-16">
+        <EmptyState
+          title="אין דוח להדפסה"
+          description={`הרעיון "${idea.name}" עדיין לא נותח עד הסוף.`}
+          action={
+            <Link to="/idea/$ideaId/step-1" params={{ ideaId: idea.id }}>
+              <PrimaryButton>המשך מילוי</PrimaryButton>
+            </Link>
+          }
+        />
+      </div>
+    </AppShell>
+  );
+}
 
 function PrintReportPage() {
   const { idea, report } = Route.useLoaderData();
+
+  if (!report) {
+    return <PrintPending idea={idea} />;
+  }
 
   return (
     <div style={{ background: "#fff", color: "#171717" }} className="min-h-screen">

@@ -3,7 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 import { StatusBadge } from "@/components/ui-kit/StatusBadge";
 import { EmptyState } from "@/components/states/EmptyState";
-import { MOCK_IDEAS } from "@/data/mock/ideas";
+import { ideasService } from "@/services";
 import type { Idea } from "@/types";
 
 export const Route = createFileRoute("/dashboard")({
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/dashboard")({
       { name: "description", content: "ניהול ובדיקה של רעיונות עסקיים." },
     ],
   }),
+  loader: () => ideasService.list(),
   component: DashboardPage,
 });
 
@@ -25,16 +26,10 @@ function formatDate(iso: string) {
 }
 
 function IdeaCard({ idea }: { idea: Idea }) {
-  const linkTo = idea.status === "report_ready" || idea.status === "needs_update"
-    ? "/report/$ideaId"
-    : "/idea/step-1";
+  const hasReport = idea.status === "report_ready" || idea.status === "needs_update";
 
-  return (
-    <Link
-      to={linkTo}
-      params={{ ideaId: idea.id }}
-      className="group block rounded-2xl border border-border bg-surface p-6 transition-all hover:border-foreground/40 hover:shadow-card"
-    >
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h3 className="font-heading text-lg font-semibold">{idea.name}</h3>
@@ -64,12 +59,25 @@ function IdeaCard({ idea }: { idea: Idea }) {
           ←
         </span>
       </div>
+    </>
+  );
+
+  const className =
+    "group block rounded-2xl border border-border bg-surface p-6 transition-all hover:border-foreground/40 hover:shadow-card";
+
+  return hasReport ? (
+    <Link to="/report/$ideaId" params={{ ideaId: idea.id }} className={className}>
+      {body}
+    </Link>
+  ) : (
+    <Link to="/idea/$ideaId/step-1" params={{ ideaId: idea.id }} className={className}>
+      {body}
     </Link>
   );
 }
 
 function DashboardPage() {
-  const ideas = MOCK_IDEAS;
+  const ideas = Route.useLoaderData();
   const isEmpty = ideas.length === 0;
 
   return (
@@ -80,7 +88,9 @@ function DashboardPage() {
             <p className="text-small text-muted-foreground">שלום, דניאל</p>
             <h1 className="mt-1 font-heading text-3xl font-bold sm:text-4xl">הרעיונות שלי</h1>
             <p className="mt-2 text-body text-muted-foreground">
-              {isEmpty ? "עדיין לא בדקת רעיון. בוא נתחיל." : `יש לך ${ideas.length} רעיונות פעילים.`}
+              {isEmpty
+                ? "עדיין לא בדקת רעיון. בוא נתחיל."
+                : `יש לך ${ideas.length} רעיונות פעילים.`}
             </p>
           </div>
           <Link to="/idea/new">

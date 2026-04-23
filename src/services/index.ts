@@ -1,19 +1,32 @@
-// Service stubs. Mock implementations now — replace with real backend later.
+// Service layer. Still mock-backed — backed by an in-memory session store so
+// ideas created during a session stay retrievable by id across routes. Swap
+// each implementation for real API calls in a later pass without touching
+// callers.
 
 import type { Idea, IdeaAnswer, Report } from "@/types";
 import { MOCK_IDEAS } from "@/data/mock/ideas";
 import { MOCK_REPORT } from "@/data/mock/report";
 import { MOCK_ANSWERS } from "@/data/mock/answers";
 
+// Session-scoped stores. Reset on full page reload — intentional for now.
+const ideasStore: Idea[] = MOCK_IDEAS.map((i) => ({ ...i }));
+const answersStore: Record<string, Record<string, IdeaAnswer["value"]>> = {
+  idea_1: { ...MOCK_ANSWERS },
+};
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 // ── authService ─────────────────────────────────────────────
 export const authService = {
-  async signIn(_email: string, _password: string): Promise<{ ok: true }> {
+  async signIn(_email: string, _password: string) {
     await delay(400);
-    return { ok: true };
+    return { ok: true as const };
   },
-  async signUp(_email: string, _password: string): Promise<{ ok: true }> {
+  async signUp(_email: string, _password: string) {
     await delay(400);
-    return { ok: true };
+    return { ok: true as const };
   },
   async signOut(): Promise<void> {
     await delay(100);
@@ -27,34 +40,46 @@ export const authService = {
 export const ideasService = {
   async list(): Promise<Idea[]> {
     await delay(200);
-    return MOCK_IDEAS;
+    return ideasStore.slice();
   },
   async get(id: string): Promise<Idea | null> {
     await delay(150);
-    return MOCK_IDEAS.find((i) => i.id === id) ?? null;
+    return ideasStore.find((i) => i.id === id) ?? null;
   },
-  async create(input: Pick<Idea, "name" | "category" | "initial_market" | "region">): Promise<Idea> {
+  async create(
+    input: Pick<Idea, "name" | "category" | "initial_market" | "region">,
+  ): Promise<Idea> {
     await delay(300);
-    return {
+    const now = new Date().toISOString();
+    const idea: Idea = {
       id: `idea_${Date.now()}`,
       ...input,
       status: "draft",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      created_at: now,
+      updated_at: now,
       current_step: 1,
       completion_percent: 0,
     };
+    ideasStore.unshift(idea);
+    answersStore[idea.id] = {};
+    return idea;
   },
 };
 
 // ── answersService ──────────────────────────────────────────
 export const answersService = {
-  async getForIdea(_ideaId: string): Promise<Record<string, IdeaAnswer["value"]>> {
+  async getForIdea(ideaId: string): Promise<Record<string, IdeaAnswer["value"]>> {
     await delay(150);
-    return MOCK_ANSWERS;
+    return { ...(answersStore[ideaId] ?? {}) };
   },
-  async save(_ideaId: string, _key: string, _value: IdeaAnswer["value"]): Promise<{ saved_at: string }> {
+  async save(
+    ideaId: string,
+    key: string,
+    value: IdeaAnswer["value"],
+  ): Promise<{ saved_at: string }> {
     await delay(300);
+    const bucket = (answersStore[ideaId] ??= {});
+    bucket[key] = value;
     return { saved_at: new Date().toISOString() };
   },
 };
@@ -69,12 +94,16 @@ export const evaluationService = {
 
 // ── reportsService ─────────────────────────────────────────
 export const reportsService = {
-  async getForIdea(_ideaId: string): Promise<Report> {
+  async getForIdea(ideaId: string): Promise<Report | null> {
     await delay(200);
-    return MOCK_REPORT;
+    const idea = ideasStore.find((i) => i.id === ideaId);
+    if (!idea) return null;
+    const hasReport = idea.status === "report_ready" || idea.status === "needs_update";
+    if (!hasReport) return null;
+    return {
+      ...MOCK_REPORT,
+      idea_id: idea.id,
+      is_stale: idea.status === "needs_update",
+    };
   },
 };
-
-function delay(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}

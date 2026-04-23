@@ -1,9 +1,15 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
+import { ideasService } from "@/services";
 
-export const Route = createFileRoute("/idea/analyzing")({
+export const Route = createFileRoute("/idea/$ideaId/analyzing")({
   head: () => ({ meta: [{ title: "מנתח את הרעיון…" }] }),
+  loader: async ({ params }) => {
+    const idea = await ideasService.get(params.ideaId);
+    if (!idea) throw notFound();
+    return { ideaId: idea.id };
+  },
   component: AnalyzingPage,
 });
 
@@ -15,17 +21,21 @@ const STAGES = [
 ];
 
 function AnalyzingPage() {
+  const { ideaId } = Route.useLoaderData();
   const navigate = useNavigate();
   const [stage, setStage] = useState(0);
 
   useEffect(() => {
     if (stage >= STAGES.length) {
-      const t = window.setTimeout(() => navigate({ to: "/report/$ideaId", params: { ideaId: "idea_1" } }), 600);
+      const t = window.setTimeout(
+        () => navigate({ to: "/report/$ideaId", params: { ideaId } }),
+        600,
+      );
       return () => window.clearTimeout(t);
     }
     const t = window.setTimeout(() => setStage((s) => s + 1), 900);
     return () => window.clearTimeout(t);
-  }, [stage, navigate]);
+  }, [stage, navigate, ideaId]);
 
   return (
     <AppShell headerVariant="minimal">
@@ -69,7 +79,15 @@ function AnalyzingPage() {
                     >
                       {done ? "✓" : i + 1}
                     </span>
-                    <span className={done ? "text-foreground" : active ? "text-foreground" : "text-muted-foreground"}>
+                    <span
+                      className={
+                        done
+                          ? "text-foreground"
+                          : active
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                      }
+                    >
                       {s}
                     </span>
                     {active && (
