@@ -7,7 +7,7 @@ import { SECTION_LABELS } from "@/types";
 export const Route = createFileRoute("/report/$ideaId/print")({
   head: () => ({
     meta: [
-      { title: "דוח להדפסה — Idea Validator" },
+      { title: "דוח להדפסה — Ideascan.ai" },
       { name: "robots", content: "noindex" },
     ],
   }),
@@ -37,7 +37,7 @@ function PrintReportPage() {
         </div>
 
         <header>
-          <p className="text-small text-muted-foreground">דוח החלטה — Idea Validator</p>
+          <p className="text-small text-muted-foreground">דוח החלטה — Ideascan.ai</p>
           <h1 className="mt-1 font-heading text-4xl font-bold">{idea.name}</h1>
           <p className="mt-1 text-body text-muted-foreground">
             {idea.category} · {idea.initial_market} · {idea.region}
@@ -130,7 +130,7 @@ function PrintReportPage() {
         </section>
 
         <footer className="mt-12 border-t border-border pt-4 text-small text-muted-foreground">
-          <p>הופק דרך Idea Validator · {new Date(report.generated_at).toLocaleDateString("he-IL")}</p>
+          <p>הופק דרך Ideascan.ai · {new Date(report.generated_at).toLocaleDateString("he-IL")}</p>
         </footer>
       </div>
     </div>

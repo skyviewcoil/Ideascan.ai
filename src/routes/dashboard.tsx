@@ -9,7 +9,7 @@ import type { Idea } from "@/types";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "הרעיונות שלי — Idea Validator" },
+      { title: "הרעיונות שלי — Ideascan.ai" },
       { name: "description", content: "ניהול ובדיקה של רעיונות עסקיים." },
     ],
   }),

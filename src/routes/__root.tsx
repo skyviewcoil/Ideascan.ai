@@ -29,9 +29,9 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Idea Validator — בדוק את הרעיון העסקי שלך" },
+      { title: "Ideascan.ai — בדוק את הרעיון העסקי שלך" },
       { name: "description", content: "מערכת ניתוח רעיונות עסקיים: בעיה, שוק, בידול, מוניטיזציה, הפצה וסיכון. דוח החלטה ותוכנית בדיקה ל־14 יום." },
-      { property: "og:title", content: "Idea Validator — בדוק את הרעיון העסקי שלך" },
+      { property: "og:title", content: "Ideascan.ai — בדוק את הרעיון העסקי שלך" },
       { property: "og:description", content: "מערכת ניתוח רעיונות עסקיים שמחזירה דוח החלטה ברור ותוכנית בדיקה מעשית." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },

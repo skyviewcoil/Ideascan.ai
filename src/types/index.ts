@@ -1,4 +1,4 @@
-// Core domain types for Idea Validator.
+// Core domain types for Ideascan.ai.
 // These shapes are the contract between UI and (future) backend.
 
 export type SectionKey =
