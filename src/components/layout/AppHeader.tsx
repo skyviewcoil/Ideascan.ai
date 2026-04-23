@@ -1,10 +1,18 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { authService } from "@/services/auth";
 
 interface AppHeaderProps {
   variant?: "full" | "minimal";
 }
 
 export function AppHeader({ variant = "full" }: AppHeaderProps) {
+  const navigate = useNavigate();
+
+  const signOut = async () => {
+    await authService.signOut();
+    navigate({ to: "/login" });
+  };
+
   return (
     <header className="border-b border-border bg-surface no-print">
       <div className="container-app flex h-16 items-center justify-between">
@@ -12,9 +20,7 @@ export function AppHeader({ variant = "full" }: AppHeaderProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-surface">
             <span className="font-heading text-sm font-bold">IS</span>
           </div>
-          <span className="font-heading text-base font-bold tracking-tight">
-            Ideascan.ai
-          </span>
+          <span className="font-heading text-base font-bold tracking-tight">Ideascan.ai</span>
         </Link>
 
         {variant === "full" && (
@@ -26,12 +32,13 @@ export function AppHeader({ variant = "full" }: AppHeaderProps) {
             >
               הרעיונות שלי
             </Link>
-            <Link
-              to="/login"
+            <button
+              type="button"
+              onClick={signOut}
               className="rounded-lg px-3 py-2 text-label text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
             >
               התנתק
-            </Link>
+            </button>
           </nav>
         )}
       </div>
