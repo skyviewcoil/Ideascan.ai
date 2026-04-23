@@ -35,8 +35,8 @@ function structuredCloneSafe<T>(v: T): T {
 }
 
 async function currentUserId(): Promise<string | null> {
-  const session = await authService.getCurrentSession();
-  return session?.user.id ?? null;
+  const user = await authService.getCurrentUser();
+  return user?.id ?? null;
 }
 
 function loadIdeas(userId: string | null): Idea[] {

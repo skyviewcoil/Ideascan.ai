@@ -86,8 +86,26 @@ function ensureGuestSession(): Session {
   return session;
 }
 
+// Internal session resolver — used by getCurrentUser / isAuthenticated.
+// Kept module-private so the public API stays user-centric.
+function resolveSession(): Session | null {
+  if (!isBrowser()) {
+    // SSR has no storage and no per-user data — render as the public
+    // guest so routes that do not require auth still work. The route
+    // guard runs on the client after hydration and redirects there.
+    return {
+      user: GUEST_USER,
+      provider: "guest",
+      issued_at: "1970-01-01T00:00:00.000Z",
+    };
+  }
+  return ensureGuestSession();
+}
+
 export interface AuthService {
-  getCurrentSession(): Promise<Session | null>;
+  getCurrentUser(): Promise<User | null>;
+  requireUser(): Promise<User>;
+  isAuthenticated(): Promise<boolean>;
   signIn(email: string, password: string): Promise<Session>;
   signUp(input: { name: string; email: string; password: string }): Promise<Session>;
   signOut(): Promise<void>;
@@ -95,18 +113,20 @@ export interface AuthService {
 }
 
 export const authService: AuthService = {
-  async getCurrentSession() {
-    if (!isBrowser()) {
-      // SSR has no storage and no per-user data — render as the public
-      // guest so routes that do not require auth still work. The route
-      // guard runs on the client after hydration and redirects there.
-      return {
-        user: GUEST_USER,
-        provider: "guest",
-        issued_at: "1970-01-01T00:00:00.000Z",
-      };
+  async getCurrentUser() {
+    return resolveSession()?.user ?? null;
+  },
+
+  async requireUser() {
+    const user = resolveSession()?.user;
+    if (!user) {
+      throw new Error("Not authenticated");
     }
-    return ensureGuestSession();
+    return user;
+  },
+
+  async isAuthenticated() {
+    return resolveSession() !== null;
   },
 
   async signIn(email, _password) {
