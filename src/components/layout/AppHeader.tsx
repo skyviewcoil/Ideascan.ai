@@ -10,10 +10,10 @@ export function AppHeader({ variant = "full" }: AppHeaderProps) {
       <div className="container-app flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-foreground text-surface">
-            <span className="font-heading text-sm font-bold">IV</span>
+            <span className="font-heading text-sm font-bold">IS</span>
           </div>
           <span className="font-heading text-base font-bold tracking-tight">
-            Idea Validator
+            Ideascan.ai
           </span>
         </Link>
 
