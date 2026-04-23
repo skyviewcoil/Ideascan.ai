@@ -7,7 +7,7 @@ import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 export const Route = createFileRoute("/idea/new")({
   head: () => ({
     meta: [
-      { title: "רעיון חדש — Idea Validator" },
+      { title: "רעיון חדש — Ideascan.ai" },
       { name: "description", content: "פתח רעיון חדש לבדיקה." },
     ],
   }),

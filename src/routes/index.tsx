@@ -6,13 +6,13 @@ import { DecisionBadge } from "@/components/report/DecisionBadge";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Idea Validator — בדוק את הרעיון העסקי שלך לפני שאתה בונה" },
+      { title: "Ideascan.ai — בדוק את הרעיון העסקי שלך לפני שאתה בונה" },
       {
         name: "description",
         content:
           "מערכת שמנתחת את הבעיה, השוק, הבידול, המוניטיזציה, ההפצה והסיכון של רעיון עסקי, ומחזירה דוח החלטה ותוכנית בדיקה ל־14 יום.",
       },
-      { property: "og:title", content: "Idea Validator — בדוק את הרעיון העסקי שלך" },
+      { property: "og:title", content: "Ideascan.ai — בדוק את הרעיון העסקי שלך" },
       {
         property: "og:description",
         content: "דוח החלטה ברור ותוכנית בדיקה מעשית לכל רעיון עסקי.",
@@ -161,7 +161,7 @@ function LandingPage() {
 
       <footer className="border-t border-border bg-background">
         <div className="container-app flex flex-col items-start justify-between gap-3 py-8 text-small text-muted-foreground md:flex-row md:items-center">
-          <span>© Idea Validator</span>
+          <span>© Ideascan.ai</span>
           <span>נבנה לקבלת החלטות יותר טובות.</span>
         </div>
       </footer>

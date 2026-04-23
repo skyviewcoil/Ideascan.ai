@@ -7,7 +7,7 @@ import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
-      { title: "הרשמה — Idea Validator" },
+      { title: "הרשמה — Ideascan.ai" },
       { name: "description", content: "צור חשבון חדש כדי לבדוק את הרעיון העסקי שלך." },
     ],
   }),

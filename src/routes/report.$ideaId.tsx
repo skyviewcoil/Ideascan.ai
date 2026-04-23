@@ -14,7 +14,7 @@ import { MOCK_IDEAS } from "@/data/mock/ideas";
 export const Route = createFileRoute("/report/$ideaId")({
   head: () => ({
     meta: [
-      { title: "דוח החלטה — Idea Validator" },
+      { title: "דוח החלטה — Ideascan.ai" },
       { name: "description", content: "דוח החלטה מלא: ציונים, חוזקות, חולשות, סתירות ותוכנית בדיקה." },
     ],
   }),

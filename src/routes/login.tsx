@@ -7,7 +7,7 @@ import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "התחברות — Idea Validator" },
+      { title: "התחברות — Ideascan.ai" },
       { name: "description", content: "התחבר לחשבון שלך כדי להמשיך לבדוק רעיונות עסקיים." },
     ],
   }),
