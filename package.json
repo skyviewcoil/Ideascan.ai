@@ -17,6 +17,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.73.0",
     "@cloudflare/vite-plugin": "^1.25.5",
+    "@supabase/supabase-js": "^2.45.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-router": "^1.168.0",
     "@tanstack/react-start": "^1.167.14",
