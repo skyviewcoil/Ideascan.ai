@@ -1,6 +1,24 @@
 // Core domain types for Ideascan.ai.
 // These shapes are the contract between UI and (future) backend.
 
+// ── Identity / session ──────────────────────────────────────
+// Kept deliberately provider-agnostic so a real IdP (email, Google,
+// Supabase, etc.) can slot in later without changing consumers.
+
+export type AuthProvider = "guest" | "mock" | "email";
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface Session {
+  user: User;
+  provider: AuthProvider;
+  issued_at: string;
+}
+
 export type SectionKey =
   | "problem"
   | "market"
@@ -12,18 +30,9 @@ export type SectionKey =
 
 export type IdeaStatus = "draft" | "completed" | "report_ready" | "needs_update";
 
-export type DecisionType =
-  | "go"
-  | "refine"
-  | "validate_first"
-  | "not_now";
+export type DecisionType = "go" | "refine" | "validate_first" | "not_now";
 
-export type QuestionType =
-  | "short_text"
-  | "long_text"
-  | "single_choice"
-  | "multi_choice"
-  | "scale";
+export type QuestionType = "short_text" | "long_text" | "single_choice" | "multi_choice" | "scale";
 
 export interface QuestionOption {
   value: string;

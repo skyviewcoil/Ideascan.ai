@@ -1,8 +1,12 @@
 // Service layer — the single integration seam for the rest of the app.
 //
-// Currently backed by localStorage via ./storage. A later pass can replace
-// the bodies here with real HTTP calls; signatures are kept stable so
-// callers (routes, components) don't have to change.
+// Currently backed by localStorage via ./storage and ./auth. A later pass
+// can replace the bodies here with real HTTP calls; signatures are stable
+// so callers (routes, components) don't have to change.
+//
+// All data operations are scoped to the current user's id. Sign-out wipes
+// the session but keeps the user's data in localStorage (so signing in
+// again with the same id restores it).
 
 import type { Idea, IdeaAnswer, IdeaStatus, Report } from "@/types";
 import { QUESTIONS } from "@/config/questions";
@@ -10,6 +14,10 @@ import { MOCK_IDEAS } from "@/data/mock/ideas";
 import { MOCK_REPORT } from "@/data/mock/report";
 import { MOCK_ANSWERS } from "@/data/mock/answers";
 import { isBrowser, readKey, writeKey } from "./storage";
+import { authService } from "./auth";
+
+export { authService } from "./auth";
+export type { AuthService } from "./auth";
 
 type AnswersByIdea = Record<string, Record<string, IdeaAnswer["value"]>>;
 
@@ -18,38 +26,43 @@ function delay(ms: number) {
 }
 
 // Server-side fallbacks used when there is no localStorage (SSR). These are
-// effectively the public demo dataset.
+// effectively the public demo dataset — no user scoping possible.
 const SEED_IDEAS: Idea[] = MOCK_IDEAS.map((i) => ({ ...i }));
 const SEED_ANSWERS: AnswersByIdea = { idea_1: { ...MOCK_ANSWERS } };
-
-function loadIdeas(): Idea[] {
-  if (!isBrowser()) return SEED_IDEAS.map((i) => ({ ...i }));
-  const stored = readKey<Idea[]>("ideas");
-  if (stored) return stored;
-  // First run on this browser — seed with the demo ideas so the dashboard
-  // isn't empty while there's no backend.
-  writeKey<Idea[]>("ideas", SEED_IDEAS);
-  return SEED_IDEAS.map((i) => ({ ...i }));
-}
-
-function loadAnswers(): AnswersByIdea {
-  if (!isBrowser()) return structuredCloneSafe(SEED_ANSWERS);
-  const stored = readKey<AnswersByIdea>("answers");
-  if (stored) return stored;
-  writeKey<AnswersByIdea>("answers", SEED_ANSWERS);
-  return structuredCloneSafe(SEED_ANSWERS);
-}
 
 function structuredCloneSafe<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
-function persistIdeas(ideas: Idea[]) {
-  writeKey<Idea[]>("ideas", ideas);
+async function currentUserId(): Promise<string | null> {
+  const session = await authService.getCurrentSession();
+  return session?.user.id ?? null;
 }
 
-function persistAnswers(answers: AnswersByIdea) {
-  writeKey<AnswersByIdea>("answers", answers);
+function loadIdeas(userId: string | null): Idea[] {
+  if (!isBrowser() || !userId) return SEED_IDEAS.map((i) => ({ ...i }));
+  const stored = readKey<Idea[]>("ideas", userId);
+  if (stored) return stored;
+  // First run for this user on this browser — seed the demo dataset so
+  // the dashboard isn't empty while there's no backend.
+  writeKey<Idea[]>("ideas", SEED_IDEAS, userId);
+  return SEED_IDEAS.map((i) => ({ ...i }));
+}
+
+function loadAnswers(userId: string | null): AnswersByIdea {
+  if (!isBrowser() || !userId) return structuredCloneSafe(SEED_ANSWERS);
+  const stored = readKey<AnswersByIdea>("answers", userId);
+  if (stored) return stored;
+  writeKey<AnswersByIdea>("answers", SEED_ANSWERS, userId);
+  return structuredCloneSafe(SEED_ANSWERS);
+}
+
+function persistIdeas(ideas: Idea[], userId: string) {
+  writeKey<Idea[]>("ideas", ideas, userId);
+}
+
+function persistAnswers(answers: AnswersByIdea, userId: string) {
+  writeKey<AnswersByIdea>("answers", answers, userId);
 }
 
 // ── Progress helpers ───────────────────────────────────────
@@ -84,38 +97,24 @@ function stepForQuestion(questionKey: string): 1 | 2 | 3 | 4 | 5 | null {
   return q ? q.step : null;
 }
 
-// ── authService ─────────────────────────────────────────────
-export const authService = {
-  async signIn(_email: string, _password: string) {
-    await delay(400);
-    return { ok: true as const };
-  },
-  async signUp(_email: string, _password: string) {
-    await delay(400);
-    return { ok: true as const };
-  },
-  async signOut(): Promise<void> {
-    await delay(100);
-  },
-  getCurrentUser(): { id: string; name: string; email: string } | null {
-    return { id: "u_1", name: "דניאל", email: "daniel@example.com" };
-  },
-};
-
 // ── ideasService ────────────────────────────────────────────
 export const ideasService = {
   async list(): Promise<Idea[]> {
     await delay(120);
-    return loadIdeas();
+    const uid = await currentUserId();
+    return loadIdeas(uid);
   },
   async get(id: string): Promise<Idea | null> {
     await delay(80);
-    return loadIdeas().find((i) => i.id === id) ?? null;
+    const uid = await currentUserId();
+    return loadIdeas(uid).find((i) => i.id === id) ?? null;
   },
   async create(
     input: Pick<Idea, "name" | "category" | "initial_market" | "region">,
   ): Promise<Idea> {
     await delay(200);
+    const uid = await currentUserId();
+    if (!uid) throw new Error("Cannot create idea: no active session.");
     const now = new Date().toISOString();
     const idea: Idea = {
       id: `idea_${Date.now()}`,
@@ -126,19 +125,21 @@ export const ideasService = {
       current_step: 1,
       completion_percent: 0,
     };
-    const ideas = loadIdeas();
+    const ideas = loadIdeas(uid);
     ideas.unshift(idea);
-    persistIdeas(ideas);
+    persistIdeas(ideas, uid);
 
-    const answers = loadAnswers();
+    const answers = loadAnswers(uid);
     answers[idea.id] = {};
-    persistAnswers(answers);
+    persistAnswers(answers, uid);
 
     return idea;
   },
   async setCurrentStep(ideaId: string, step: 1 | 2 | 3 | 4 | 5): Promise<void> {
     await delay(50);
-    const ideas = loadIdeas();
+    const uid = await currentUserId();
+    if (!uid) return;
+    const ideas = loadIdeas(uid);
     const idx = ideas.findIndex((i) => i.id === ideaId);
     if (idx < 0) return;
     const idea = ideas[idx];
@@ -148,7 +149,7 @@ export const ideasService = {
       current_step: step,
       updated_at: new Date().toISOString(),
     };
-    persistIdeas(ideas);
+    persistIdeas(ideas, uid);
   },
 };
 
@@ -156,7 +157,8 @@ export const ideasService = {
 export const answersService = {
   async getForIdea(ideaId: string): Promise<Record<string, IdeaAnswer["value"]>> {
     await delay(80);
-    return { ...(loadAnswers()[ideaId] ?? {}) };
+    const uid = await currentUserId();
+    return { ...(loadAnswers(uid)[ideaId] ?? {}) };
   },
   async save(
     ideaId: string,
@@ -164,15 +166,17 @@ export const answersService = {
     value: IdeaAnswer["value"],
   ): Promise<{ saved_at: string }> {
     await delay(180);
+    const uid = await currentUserId();
+    if (!uid) throw new Error("Cannot save answer: no active session.");
 
-    const answers = loadAnswers();
+    const answers = loadAnswers(uid);
     const bucket = { ...(answers[ideaId] ?? {}), [key]: value };
     answers[ideaId] = bucket;
-    persistAnswers(answers);
+    persistAnswers(answers, uid);
 
-    // Keep idea progress metadata coherent so the dashboard and step headers
-    // don't drift from the actual answer state.
-    const ideas = loadIdeas();
+    // Keep idea progress metadata coherent so the dashboard and step
+    // headers don't drift from the actual answer state.
+    const ideas = loadIdeas(uid);
     const idx = ideas.findIndex((i) => i.id === ideaId);
     if (idx >= 0) {
       const current = ideas[idx];
@@ -185,7 +189,7 @@ export const answersService = {
         status: nextStatusAfterEdit(current.status),
         updated_at: new Date().toISOString(),
       };
-      persistIdeas(ideas);
+      persistIdeas(ideas, uid);
     }
 
     return { saved_at: new Date().toISOString() };
@@ -194,11 +198,14 @@ export const answersService = {
 
 // ── evaluationService ──────────────────────────────────────
 export const evaluationService = {
-  // Called when the user finishes step 5 and reaches /analyzing. For now this
-  // just flips idea status so the report route can start returning a report.
+  // Called when the user finishes step 5 and reaches /analyzing. For now
+  // this just flips idea status so the report route starts returning a
+  // report.
   async generate(ideaId: string): Promise<{ ok: true }> {
     await delay(300);
-    const ideas = loadIdeas();
+    const uid = await currentUserId();
+    if (!uid) return { ok: true };
+    const ideas = loadIdeas(uid);
     const idx = ideas.findIndex((i) => i.id === ideaId);
     if (idx < 0) return { ok: true };
     ideas[idx] = {
@@ -206,7 +213,7 @@ export const evaluationService = {
       status: "report_ready",
       updated_at: new Date().toISOString(),
     };
-    persistIdeas(ideas);
+    persistIdeas(ideas, uid);
     return { ok: true };
   },
 };
@@ -215,7 +222,8 @@ export const evaluationService = {
 export const reportsService = {
   async getForIdea(ideaId: string): Promise<Report | null> {
     await delay(120);
-    const idea = loadIdeas().find((i) => i.id === ideaId);
+    const uid = await currentUserId();
+    const idea = loadIdeas(uid).find((i) => i.id === ideaId);
     if (!idea) return null;
     const hasReport = idea.status === "report_ready" || idea.status === "needs_update";
     if (!hasReport) return null;

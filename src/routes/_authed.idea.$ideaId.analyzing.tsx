@@ -6,7 +6,7 @@ import { LoadingState } from "@/components/states/LoadingState";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 import { evaluationService, ideasService } from "@/services";
 
-export const Route = createFileRoute("/idea/$ideaId/analyzing")({
+export const Route = createFileRoute("/_authed/idea/$ideaId/analyzing")({
   head: () => ({ meta: [{ title: "מנתח את הרעיון…" }] }),
   component: AnalyzingPage,
 });

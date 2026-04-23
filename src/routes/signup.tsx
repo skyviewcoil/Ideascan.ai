@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { InputField } from "@/components/forms/InputField";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
+import { authService } from "@/services/auth";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({
@@ -19,10 +20,18 @@ function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate({ to: "/dashboard" });
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      await authService.signUp({ name, email, password });
+      navigate({ to: "/dashboard" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -35,7 +44,13 @@ function SignupPage() {
               נתחיל בבדיקה הראשונה שלך תוך דקה.
             </p>
             <form onSubmit={submit} className="mt-6 space-y-4">
-              <InputField id="name" label="שם מלא" value={name} onChange={setName} placeholder="דניאל כהן" />
+              <InputField
+                id="name"
+                label="שם מלא"
+                value={name}
+                onChange={setName}
+                placeholder="דניאל כהן"
+              />
               <InputField
                 id="email"
                 label="אימייל"
@@ -52,13 +67,16 @@ function SignupPage() {
                 onChange={setPassword}
                 placeholder="לפחות 8 תווים"
               />
-              <PrimaryButton size="lg" className="w-full">
-                צור חשבון
+              <PrimaryButton size="lg" className="w-full" type="submit" disabled={submitting}>
+                {submitting ? "יוצר חשבון…" : "צור חשבון"}
               </PrimaryButton>
             </form>
             <p className="mt-6 text-small text-muted-foreground">
               כבר יש לך חשבון?{" "}
-              <Link to="/login" className="font-semibold text-foreground underline-offset-4 hover:underline">
+              <Link
+                to="/login"
+                className="font-semibold text-foreground underline-offset-4 hover:underline"
+              >
                 התחברות
               </Link>
             </p>

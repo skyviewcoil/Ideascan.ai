@@ -9,7 +9,7 @@ import { ideasService, reportsService } from "@/services";
 import { SECTION_LABELS } from "@/types";
 import type { Idea, Report } from "@/types";
 
-export const Route = createFileRoute("/report/$ideaId/print")({
+export const Route = createFileRoute("/_authed/report/$ideaId/print")({
   head: () => ({
     meta: [{ title: "דוח להדפסה — Ideascan.ai" }, { name: "robots", content: "noindex" }],
   }),

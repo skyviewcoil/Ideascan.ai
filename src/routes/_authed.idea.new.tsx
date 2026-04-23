@@ -5,7 +5,7 @@ import { InputField } from "@/components/forms/InputField";
 import { PrimaryButton } from "@/components/ui-kit/PrimaryButton";
 import { ideasService } from "@/services";
 
-export const Route = createFileRoute("/idea/new")({
+export const Route = createFileRoute("/_authed/idea/new")({
   head: () => ({
     meta: [
       { title: "רעיון חדש — Ideascan.ai" },

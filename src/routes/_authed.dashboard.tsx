@@ -8,7 +8,7 @@ import { useAsyncData } from "@/hooks/useAsyncData";
 import { ideasService } from "@/services";
 import type { Idea } from "@/types";
 
-export const Route = createFileRoute("/dashboard")({
+export const Route = createFileRoute("/_authed/dashboard")({
   head: () => ({
     meta: [
       { title: "הרעיונות שלי — Ideascan.ai" },
